@@ -10,6 +10,22 @@ import { getCloudinary } from '../utils/cloudinary.ts';
 
 const app = express();
 
+// --- Path Rewrite Middleware for Netlify Functions ---
+// Netlify passes the event path to serverless-http, which could be /.netlify/functions/api/prompts
+// or /api/prompts. We strip these prefixes so Express sees exactly /prompts, /categories, etc.
+app.use((req, res, next) => {
+  if (req.url.startsWith('/.netlify/functions/api')) {
+    req.url = req.url.replace('/.netlify/functions/api', '');
+  } else if (req.url.startsWith('/api')) {
+    req.url = req.url.replace('/api', '');
+  }
+  
+  if (!req.url || req.url === '') {
+    req.url = '/';
+  }
+  next();
+});
+
 app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
 
