@@ -2,7 +2,8 @@ import express from 'express';
 import serverless from 'serverless-http';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
-import { v4 as uuidv4 } from 'uuid';
+import * as uuid from 'uuid';
+const uuidv4 = uuid.v4 || (uuid.default && uuid.default.v4);
 import jwt from 'jsonwebtoken';
 
 import { getDbClient } from '../utils/db.ts';
