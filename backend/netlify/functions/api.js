@@ -2,8 +2,7 @@ import express from 'express';
 import serverless from 'serverless-http';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
-import * as uuid from 'uuid';
-const uuidv4 = uuid.v4 || (uuid.default && uuid.default.v4);
+import { randomUUID } from 'node:crypto';
 import jwt from 'jsonwebtoken';
 
 import { getDbClient } from '../utils/db.ts';
@@ -103,7 +102,7 @@ app.post('/categories', requireAuth, async (req, res) => {
   
   if (!name) return res.status(400).json({ error: 'Name is required' });
   
-  const id = uuidv4();
+  const id = randomUUID();
   const createdAt = Date.now();
   const db = getDbClient();
   
@@ -202,7 +201,7 @@ app.post('/prompts', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'Title, promptText, and category are required' });
   }
   
-  const id = uuidv4();
+  const id = randomUUID();
   const createdAt = Date.now();
   const db = getDbClient();
   const tagsJson = JSON.stringify(Array.isArray(tags) ? tags : []);
