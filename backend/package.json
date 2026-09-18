@@ -1,0 +1,25 @@
+{
+  "name": "ai-prompt-lib-backend",
+  "version": "1.0.0",
+  "description": "Backend foundation for AI Image Prompt Library",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/generate_catalog.js && cd admin && npm install && npm run build",
+    "db:init": "node scripts/init_database.js",
+    "db:seed": "node scripts/seed_test_data.js",
+    "db:test": "node scripts/test_database.js",
+    "db:cleanup": "node scripts/cleanup_database.js",
+    "cloudinary:test": "node scripts/test_cloudinary.js"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.18.0",
+    "cloudinary": "^2.0.3",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "dotenv": "^16.4.5",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "serverless-http": "^4.0.0"
+  }
+}

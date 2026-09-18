@@ -1,0 +1,6 @@
+{
+  "name": "AI Image Prompt Library",
+  "description": "A dynamic library of AI-generated images and their corresponding text prompts.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
