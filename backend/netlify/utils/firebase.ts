@@ -1,5 +1,3 @@
-import admin from 'firebase-admin';
-
 /**
  * Normalizes and cleans a PEM private key string from process.env.
  * Extracts the raw Base64 payload between PEM markers, strips all non-base64 characters
@@ -105,13 +103,14 @@ function logPrivateKeyDiagnostics(
 }
 
 /**
- * Initializes and returns the Firebase Admin SDK instance.
- * Reads credentials ONLY from environment variables:
- * - FIREBASE_SERVICE_ACCOUNT (full service account JSON string)
- * OR
- * - FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY
+ * Initializes and returns the Firebase Admin SDK instance asynchronously.
+ * Dynamically loads firebase-admin on demand (lazy-loading),
+ * preventing top-level module import execution during function cold-start.
  */
-export function getFirebaseAdmin() {
+export async function getFirebaseAdmin() {
+  const adminModule = await import('firebase-admin');
+  const admin = adminModule.default || adminModule;
+
   if (admin.apps.length > 0 && admin.apps[0] != null) {
     return admin;
   }
@@ -162,7 +161,7 @@ export function getFirebaseAdmin() {
   );
 }
 
-export function getMessaging() {
-  const firebaseAdmin = getFirebaseAdmin();
+export async function getMessaging() {
+  const firebaseAdmin = await getFirebaseAdmin();
   return firebaseAdmin.messaging();
 }
