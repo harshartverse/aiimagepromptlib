@@ -305,11 +305,14 @@ app.post('/notifications/send', requireAuth, async (req, res) => {
       };
 
       try {
-        await messaging.send(message);
+        const messageId = await messaging.send(message);
+        console.log(`[FCM Single Send Success] Message ID: ${messageId}`);
         return res.json({ success: true, sent: 1, failed: 0 });
       } catch (fcmErr) {
-        console.error('FCM send error for single device:', fcmErr);
-        const errCode = fcmErr.code || '';
+        const errCode = fcmErr.code || 'unknown';
+        const errMsg = fcmErr.message || 'Unknown FCM error';
+        console.error(`[FCM Single Send Error] Code: ${errCode} | Message: ${errMsg}`);
+
         if (
           errCode === 'messaging/registration-token-not-registered' ||
           errCode === 'messaging/invalid-registration-token'
@@ -319,7 +322,13 @@ app.post('/notifications/send', requireAuth, async (req, res) => {
             args: [cleanInstallationId]
           });
         }
-        return res.json({ success: true, sent: 0, failed: 1, error: fcmErr.message });
+        return res.json({
+          success: true,
+          sent: 0,
+          failed: 1,
+          error: errMsg,
+          errorCode: errCode
+        });
       }
     } else {
       // audience === 'all'
@@ -333,6 +342,7 @@ app.post('/notifications/send', requireAuth, async (req, res) => {
       let sentCount = 0;
       let failedCount = 0;
       const invalidInstallationIds = [];
+      const errorDetailsMap = {};
 
       const BATCH_SIZE = 500; // Firebase Admin SDK multicast limit
       for (let i = 0; i < devices.length; i += BATCH_SIZE) {
@@ -367,7 +377,17 @@ app.post('/notifications/send', requireAuth, async (req, res) => {
 
         batchRes.responses.forEach((resp, idx) => {
           if (!resp.success && resp.error) {
-            const code = resp.error.code;
+            const code = resp.error.code || 'unknown';
+            const message = resp.error.message || 'Unknown FCM error';
+
+            // Log safe diagnostic metadata only (NO tokens)
+            console.error(`[FCM Multicast Failure] Index: ${idx} | Code: ${code} | Message: ${message}`);
+
+            if (!errorDetailsMap[code]) {
+              errorDetailsMap[code] = { code, message, count: 0 };
+            }
+            errorDetailsMap[code].count++;
+
             if (
               code === 'messaging/registration-token-not-registered' ||
               code === 'messaging/invalid-registration-token'
@@ -390,10 +410,16 @@ app.post('/notifications/send', requireAuth, async (req, res) => {
         }
       }
 
+      const failureDetails = Object.values(errorDetailsMap);
+      console.log(`[FCM Send Summary] Total Registered Devices: ${devices.length} | Sent: ${sentCount} | Failed: ${failedCount}`, {
+        failureDetails
+      });
+
       return res.json({
         success: true,
         sent: sentCount,
-        failed: failedCount
+        failed: failedCount,
+        ...(failureDetails.length > 0 ? { errors: failureDetails } : {})
       });
     }
   } catch (e) {
