@@ -2,34 +2,24 @@ import admin from 'firebase-admin';
 
 /**
  * Normalizes and cleans a PEM private key string from process.env.
- * Handles surrounding quotes, escaped quotes, literal \n, CRLF, and extra whitespace.
+ * Extracts the raw Base64 payload between PEM markers, strips all non-base64 characters
+ * (including spaces, quotes, BOM, and escaped newlines), wraps in 64-character lines,
+ * and reconstructs standard PKCS#8 PEM format.
  */
 function formatPrivateKey(key: string): string {
   if (!key || typeof key !== 'string') return key;
 
   let sanitized = key.trim();
 
-  // Remove surrounding single or double quotes if present
-  while (
-    (sanitized.startsWith('"') && sanitized.endsWith('"')) ||
-    (sanitized.startsWith("'") && sanitized.endsWith("'"))
-  ) {
-    sanitized = sanitized.slice(1, -1).trim();
-  }
-
-  // Unescape double-escaped quotes if present
-  sanitized = sanitized.replace(/\\"/g, '"').replace(/\\'/g, "'");
-
-  // Convert literal '\n' and '\r\n' sequences to actual newline characters
+  // 1. Unescape escaped double quotes / single quotes / backslashes / newlines
   sanitized = sanitized
     .replace(/\\r\\n/g, '\n')
     .replace(/\\r/g, '\n')
-    .replace(/\\n/g, '\n');
+    .replace(/\\n/g, '\n')
+    .replace(/\\"/g, '"')
+    .replace(/\\'/g, "'");
 
-  // Normalize actual Windows CRLF to standard LF
-  sanitized = sanitized.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-
-  // Strip quotes again if unescaping revealed another quote wrapper
+  // 2. Remove surrounding outer single or double quotes if present
   while (
     (sanitized.startsWith('"') && sanitized.endsWith('"')) ||
     (sanitized.startsWith("'") && sanitized.endsWith("'"))
@@ -37,7 +27,35 @@ function formatPrivateKey(key: string): string {
     sanitized = sanitized.slice(1, -1).trim();
   }
 
-  return sanitized;
+  const beginMarker = '-----BEGIN PRIVATE KEY-----';
+  const endMarker = '-----END PRIVATE KEY-----';
+
+  // 3. Robust PEM reconstruction: if BEGIN and KEY/END markers exist in the key string
+  if (sanitized.includes('BEGIN') && sanitized.includes('KEY')) {
+    const beginIdx = sanitized.indexOf('-----BEGIN');
+    const endIdx = sanitized.lastIndexOf('KEY-----');
+
+    if (beginIdx !== -1 && endIdx !== -1) {
+      const headerEnd = sanitized.indexOf('-----', beginIdx + 10) + 5;
+      const footerStart = sanitized.lastIndexOf('-----', endIdx);
+
+      if (headerEnd > beginIdx && footerStart > headerEnd) {
+        // Isolate Base64 body between header and footer
+        const rawBody = sanitized.slice(headerEnd, footerStart);
+        // Remove ALL spaces, quotes, newlines, escaped backslashes, BOM, and non-base64 characters
+        const base64Body = rawBody.replace(/[^A-Za-z0-9+/=]/g, '');
+
+        if (base64Body.length > 0) {
+          // Wrap base64 into standard 64-character PEM lines
+          const lines = base64Body.match(/.{1,64}/g) || [base64Body];
+          return `${beginMarker}\n${lines.join('\n')}\n${endMarker}\n`;
+        }
+      }
+    }
+  }
+
+  // Fallback if markers were missing: standard newline & CRLF replacement
+  return sanitized.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 }
 
 /**
