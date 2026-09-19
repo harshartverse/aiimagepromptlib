@@ -60,26 +60,47 @@ function formatPrivateKey(key: string): string {
 
 /**
  * Logs non-secret diagnostic metadata for private key verification.
- * NEVER prints or exposes any key content.
+ * NEVER prints or exposes any key content or secret values.
  */
-function logPrivateKeyDiagnostics(rawKey: string, formattedKey: string, label: string = 'FIREBASE_PRIVATE_KEY') {
+function logPrivateKeyDiagnostics(
+  rawKey: string,
+  formattedKey: string,
+  selectedSource: string
+) {
   if (!rawKey) {
-    console.log(`[Firebase Admin Diagnostics] ${label}: Not provided or empty.`);
+    console.log(`[Firebase Admin Diagnostics] Source: ${selectedSource} - Key is empty or undefined.`);
     return;
   }
 
-  console.log(`[Firebase Admin Diagnostics] ${label}:`, {
+  const beginMarkerDetected = formattedKey.includes('-----BEGIN');
+  const endMarkerDetected = formattedKey.includes('-----END');
+
+  // Extract base64 body for validation
+  const beginIdx = formattedKey.indexOf('-----BEGIN');
+  const endIdx = formattedKey.lastIndexOf('KEY-----');
+  let base64Body = '';
+  if (beginIdx !== -1 && endIdx !== -1) {
+    const headerEnd = formattedKey.indexOf('-----', beginIdx + 10) + 5;
+    const footerStart = formattedKey.lastIndexOf('-----', endIdx);
+    if (headerEnd > beginIdx && footerStart > headerEnd) {
+      base64Body = formattedKey.slice(headerEnd, footerStart).replace(/[^A-Za-z0-9+/=]/g, '');
+    }
+  }
+
+  const isValidBase64Body =
+    base64Body.length > 0 &&
+    base64Body.length % 4 === 0 &&
+    /^[A-Za-z0-9+/=]+$/.test(base64Body);
+
+  console.log(`[Firebase Admin Diagnostics] Selected Credential Source: ${selectedSource}`, {
     rawLength: rawKey.length,
-    formattedLength: formattedKey.length,
-    rawStartsWithBegin: rawKey.trim().startsWith('-----BEGIN PRIVATE KEY-----'),
-    formattedStartsWithBegin: formattedKey.startsWith('-----BEGIN PRIVATE KEY-----'),
-    rawEndsWithEnd: rawKey.trim().endsWith('-----END PRIVATE KEY-----'),
-    formattedEndsWithEnd: formattedKey.endsWith('-----END PRIVATE KEY-----'),
-    hadLiteralSlashN: rawKey.includes('\\n'),
-    hasActualNewline: formattedKey.includes('\n'),
-    hadSurroundingQuotes:
-      (rawKey.trim().startsWith('"') && rawKey.trim().endsWith('"')) ||
-      (rawKey.trim().startsWith("'") && rawKey.trim().endsWith("'")),
+    normalizedLength: formattedKey.length,
+    beginMarkerDetected,
+    endMarkerDetected,
+    containsActualNewline: formattedKey.includes('\n'),
+    firstCharCode: rawKey.charCodeAt(0),
+    lastCharCode: rawKey.charCodeAt(rawKey.length - 1),
+    isValidBase64Body,
   });
 }
 
@@ -106,7 +127,7 @@ export function getFirebaseAdmin() {
       if (parsedServiceAccount.private_key && typeof parsedServiceAccount.private_key === 'string') {
         const rawKey = parsedServiceAccount.private_key;
         parsedServiceAccount.private_key = formatPrivateKey(rawKey);
-        logPrivateKeyDiagnostics(rawKey, parsedServiceAccount.private_key, 'FIREBASE_SERVICE_ACCOUNT.private_key');
+        logPrivateKeyDiagnostics(rawKey, parsedServiceAccount.private_key, 'FIREBASE_SERVICE_ACCOUNT');
       }
       admin.initializeApp({
         credential: admin.credential.cert(parsedServiceAccount),
@@ -119,7 +140,7 @@ export function getFirebaseAdmin() {
 
   if (projectId && clientEmail && privateKey) {
     const formattedPrivateKey = formatPrivateKey(privateKey);
-    logPrivateKeyDiagnostics(privateKey, formattedPrivateKey, 'FIREBASE_PRIVATE_KEY');
+    logPrivateKeyDiagnostics(privateKey, formattedPrivateKey, 'FIREBASE_PRIVATE_KEY_TRIO');
 
     try {
       admin.initializeApp({
