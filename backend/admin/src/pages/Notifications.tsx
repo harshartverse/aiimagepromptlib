@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Send, Bell, Smartphone, AlertCircle, CheckCircle2, Loader2, Link as LinkIcon, Image as ImageIcon } from 'lucide-react';
 import { api } from '../services/api';
-import { DeviceRegistration, Prompt } from '../types';
+import { DeviceRegistration, Prompt, NotificationErrorDetail } from '../types';
 
 export default function Notifications() {
   const [devices, setDevices] = useState<DeviceRegistration[]>([]);
@@ -20,7 +20,11 @@ export default function Notifications() {
 
   // UI State
   const [validationError, setValidationError] = useState('');
-  const [successResult, setSuccessResult] = useState<{ sent: number; failed: number } | null>(null);
+  const [successResult, setSuccessResult] = useState<{
+    sent: number;
+    failed: number;
+    errors?: NotificationErrorDetail[];
+  } | null>(null);
   const [apiError, setApiError] = useState('');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
@@ -126,7 +130,11 @@ export default function Notifications() {
       });
 
       if (res.success) {
-        setSuccessResult({ sent: res.sent, failed: res.failed });
+        setSuccessResult({
+          sent: res.sent,
+          failed: res.failed,
+          errors: res.errors
+        });
         // Clear title & body on success while keeping audience selection
         setTitle('');
         setBody('');
@@ -339,16 +347,40 @@ export default function Notifications() {
             </div>
           )}
 
-          {/* Success Banner */}
+          {/* Success / Delivery Result Banner */}
           {successResult && (
-            <div className="bg-green-950/50 border border-green-800/60 text-green-300 px-4 py-3 rounded-lg text-sm flex items-center gap-2">
-              <CheckCircle2 size={18} className="text-green-400 shrink-0" />
-              <div>
-                <span className="font-semibold block">Notification sent successfully!</span>
-                <span className="text-xs text-green-400">
-                  {successResult.sent} delivered, {successResult.failed} failed.
-                </span>
+            <div className={`border rounded-lg p-4 text-sm space-y-2 ${
+              successResult.sent > 0
+                ? 'bg-green-950/50 border-green-800/60 text-green-300'
+                : 'bg-amber-950/50 border-amber-800/60 text-amber-300'
+            }`}>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 size={18} className={successResult.sent > 0 ? 'text-green-400 shrink-0' : 'text-amber-400 shrink-0'} />
+                <div>
+                  <span className="font-semibold block">
+                    {successResult.sent > 0 ? 'Notification sent successfully!' : 'Push Notification Dispatch Completed'}
+                  </span>
+                  <span className="text-xs">
+                    {successResult.sent} delivered, {successResult.failed} failed.
+                  </span>
+                </div>
               </div>
+
+              {/* Detailed FCM Error Reasons */}
+              {successResult.errors && successResult.errors.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-amber-800/40 text-xs space-y-2">
+                  <span className="font-semibold text-amber-200 block">Firebase Messaging Error Reasons:</span>
+                  {successResult.errors.map((err, idx) => (
+                    <div key={idx} className="bg-black/40 p-2.5 rounded-lg border border-amber-900/50 font-mono text-amber-200 space-y-1">
+                      <div><strong className="text-amber-400 font-semibold">Error Code:</strong> {err.code}</div>
+                      <div><strong className="text-amber-400 font-semibold">Details:</strong> {err.message}</div>
+                      {err.count > 1 && (
+                        <div className="text-amber-400/80 text-[11px] font-sans pt-0.5">Affected Devices: {err.count}</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
