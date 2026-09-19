@@ -179,7 +179,7 @@ app.post('/notifications/test', requireAuth, async (req, res) => {
       return res.status(404).json({ error: 'FCM token missing for the given installation_id' });
     }
 
-    const messaging = getMessaging();
+    const messaging = await getMessaging();
 
     const message = {
       token: fcmToken,
@@ -258,7 +258,7 @@ app.post('/notifications/send', requireAuth, async (req, res) => {
   const db = getDbClient();
   let messaging;
   try {
-    messaging = getMessaging();
+    messaging = await getMessaging();
   } catch (firebaseErr) {
     console.error('Firebase Admin SDK initialization error:', firebaseErr.message);
     return res.status(500).json({
