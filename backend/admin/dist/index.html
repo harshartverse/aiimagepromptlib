@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <script>
+      // Workaround for AI Studio preview environment trying to override fetch
+      try {
+        if (typeof window !== 'undefined') {
+          let _fetch = window.fetch;
+          Object.defineProperty(window, 'fetch', {
+            get: function() { return _fetch; },
+            set: function(val) { _fetch = val; },
+            configurable: true,
+            enumerable: true
+          });
+        }
+      } catch (e) {}
+    </script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Panel - AI Prompt Library</title>
+    <script type="module" crossorigin src="/assets/index-CeMasM91.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-BfnmeXKB.css">
+  </head>
+  <body class="bg-gray-900 text-gray-100">
+    <div id="root"></div>
+  </body>
+</html>
